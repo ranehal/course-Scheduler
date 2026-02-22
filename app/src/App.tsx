@@ -396,6 +396,12 @@ const App: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <footer className="footer">
+        <div className="footer-content">
+          &lt;3 duas from nehal
+        </div>
+      </footer>
     </div>
   );
 };
