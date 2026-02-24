@@ -12,9 +12,12 @@ import {
   Check,
   Star,
   Zap,
-  MapPin
+  MapPin,
+  Download,
+  Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import html2canvas from 'html2canvas';
 import type { CourseData, Course, Section } from './types';
 import './App.css';
 
@@ -55,6 +58,7 @@ const App: React.FC = () => {
   const [basket, setBasket] = useState<Course[]>([]);
   const [excludedDays, setExcludedDays] = useState<string[]>([]);
   const [facultyPrios, setFacultyPrios] = useState<Record<string, number>>({}); 
+  const [sectionPrios, setSectionPrios] = useState<Record<string, string>>({}); 
   
   const [solutions, setSolutions] = useState<Routine[]>([]);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -96,17 +100,111 @@ const App: React.FC = () => {
     setFacultyPrios(prev => ({ ...prev, [code]: level }));
   };
 
+  const setSectionPrio = (courseCode: string, sectionId: string) => {
+    setSectionPrios(prev => {
+      if (prev[courseCode] === sectionId) {
+        const next = { ...prev };
+        delete next[courseCode];
+        return next;
+      }
+      return { ...prev, [courseCode]: sectionId };
+    });
+  };
+
+  const downloadTableAsImage = async () => {
+    const tableElement = document.querySelector('.routine-grid') as HTMLElement;
+    if (!tableElement) return;
+
+    try {
+      const canvas = await html2canvas(tableElement, {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        logging: false,
+        useCORS: true
+      });
+      
+      const image = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = image;
+      a.download = `routine-${solutions[activeIndex].matchPercentage}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Failed to capture table:', err);
+      alert('Failed to generate image. Please try again.');
+    }
+  };
+
+  const downloadRoutine = () => {
+    const routine = solutions[activeIndex];
+    if (!routine) return;
+
+    const dayMap: Record<string, number> = {
+      'Sunday': 0,
+      'Monday': 1,
+      'Tuesday': 2,
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5,
+      'Saturday': 6
+    };
+
+    const scheduleData = routine.sections.flatMap(sec => {
+      const course = basket.find(c => c.course_code === sec.course_code);
+      return sec.schedule.map(sch => ({
+        day: dayMap[sch.day],
+        start: sch.start_time,
+        end: sch.end_time,
+        code: sec.formal_code,
+        section: sec.section_name,
+        name: course ? course.course_name : sec.formal_code,
+        room: sec.room_details,
+        faculty: sec.faculty_name,
+        email: sec.faculty_email
+      }));
+    });
+
+    fetch('/rou.html')
+      .then(res => res.text())
+      .then(html => {
+        const injectedHtml = html.replace(
+          /const schedule = \[[\s\S]*?\];/,
+          `const schedule = ${JSON.stringify(scheduleData, null, 8)};`
+        );
+
+        const blob = new Blob([injectedHtml], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `routine-${routine.matchPercentage}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      })
+      .catch(err => {
+        console.error('Failed to download routine:', err);
+        alert('Could not load routine template. Please ensure rou.html is in the public folder.');
+      });
+  };
+
   const calculateScore = (sections: Section[]) => {
     let score = 500;
     const daysUsed = new Set<string>();
     let totalStartTime = 0;
     let schedCount = 0;
     let facultyBonus = 0;
+    let sectionBonus = 0;
 
     sections.forEach(sec => {
-      const prio = facultyPrios[sec.faculty_code] || 3;
-      if (prio === 1) facultyBonus += 100;
-      if (prio === 2) facultyBonus += 40;
+      const fPrio = facultyPrios[sec.faculty_code] || 3;
+      if (fPrio === 1) facultyBonus += 100;
+      if (fPrio === 2) facultyBonus += 40;
+
+      if (sectionPrios[sec.course_code] === sec.section_id) {
+        sectionBonus += 200;
+      }
 
       sec.schedule.forEach(sch => {
         daysUsed.add(sch.day);
@@ -115,7 +213,7 @@ const App: React.FC = () => {
       });
     });
 
-    score += facultyBonus;
+    score += facultyBonus + sectionBonus;
     const freeDays = DAYS.length - daysUsed.size;
     if (maxFreeDays) score += (freeDays * 80);
 
@@ -126,8 +224,8 @@ const App: React.FC = () => {
     return { 
       score, 
       freeDays, 
-      facultyPrioritySum: facultyBonus,
-      matchPercentage: Math.min(100, Math.max(0, Math.round((score / 1200) * 100)))
+      facultyPrioritySum: facultyBonus + sectionBonus,
+      matchPercentage: Math.min(100, Math.max(0, Math.round((score / 1500) * 100)))
     };
   };
 
@@ -263,6 +361,30 @@ const App: React.FC = () => {
               </button>
             </div>
 
+            <div className="glass-card" style={{ marginBottom: 24 }}>
+              <h3 className="panel-title"><Check size={18} /> Section Priorities</h3>
+              <div className="prio-list" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {basket.map(course => (
+                  <div key={course.course_code}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#ff9500', marginBottom: 4 }}>{course.formal_code}</div>
+                    <select 
+                      className="day-btn" 
+                      style={{ width: '100%', fontSize: '12px', padding: '6px' }}
+                      value={sectionPrios[course.course_code] || ''}
+                      onChange={(e) => setSectionPrio(course.course_code, e.target.value)}
+                    >
+                      <option value="">No Preference</option>
+                      {course.sections.map(s => (
+                        <option key={s.section_id} value={s.section_id}>
+                          Sec {s.section_name} - {s.faculty_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="glass-card">
               <h3 className="panel-title"><Star size={18} /> Faculty Priorities</h3>
               <div className="prio-list" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -297,6 +419,13 @@ const App: React.FC = () => {
                     <span style={{ marginLeft: 10, fontSize: '14px', color: '#86868b' }}>Match Score • {solutions[activeIndex].freeDays} Free Days</span>
                   </div>
                   <div className="nav-ctrl" style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <button className="icon-btn" title="download as table.png" onClick={downloadTableAsImage}>
+                      <ImageIcon size={20} color="#ff9500" />
+                    </button>
+                    <button className="icon-btn" title="mobile view download" onClick={downloadRoutine}>
+                      <Download size={20} color="#ff9500" />
+                    </button>
+                    <div style={{ width: '1px', height: '24px', background: '#e5e5e5', margin: '0 4px' }}></div>
                     <button className="icon-btn" disabled={activeIndex === 0} onClick={() => setActiveIndex(i => i - 1)}><ChevronLeft /></button>
                     <span style={{ fontWeight: 700 }}>{activeIndex + 1} / {solutions.length}</span>
                     <button className="icon-btn" disabled={activeIndex === solutions.length - 1} onClick={() => setActiveIndex(i => i + 1)}><ChevronRight /></button>
@@ -331,6 +460,7 @@ const App: React.FC = () => {
                                     <div key={i} className="routine-block">
                                       <div className="block-code">{m.formal_code}</div>
                                       <div className="block-sub">Sec {m.section_name} • {m.faculty_name}</div>
+                                      <div className="block-sub" style={{ fontSize: '8px', marginTop: '2px' }}>{m.room_details}</div>
                                     </div>
                                   ))}
                                 </td>

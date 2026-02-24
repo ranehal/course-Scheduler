@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Class Routine</title>
+
+    <!-- PWA & Mobile App Tags -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- Placeholder Icons -->
+    <link rel="icon" href="https://placehold.co/192x192/06B6D4/000000?text=R&font=rajdhani" type="image/png">
+    <link rel="apple-touch-icon" href="https://placehold.co/180x180/06B6D4/000000?text=R&font=rajdhani" type="image/png">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Rajdhani (futuristic) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Use Rajdhani font family */
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: #000000;
+            color: #E5E7EB; /* gray-200 */
+        }
+        
+        /* Custom class for the "active" card in the full schedule */
+        .active-class-highlight {
+            border-width: 2px;
+            border-color: #06B6D4; /* cyan-500 */
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.5);
+        }
+        
+        /* Smooth transitions for highlighting */
+        .class-item {
+            transition: all 0.3s ease-in-out;
+            border: 1px solid #374151; /* gray-700 */
+        }
+        
+        /* Glowing text for headers */
+        .text-glow-cyan {
+            text-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+        }
+        .text-glow-green {
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.4);
+        }
+        
+        /* Day toggle buttons */
+        .day-toggle {
+            transition: all 0.3s ease;
+            border: 1px solid #374151; /* gray-700 */
+        }
+        .day-toggle-active {
+            background-color: #06B6D4; /* cyan-500 */
+            color: #000;
+            border-color: #06B6D4;
+            font-weight: 700;
+        }
+        /* Style for disabled (no class) days */
+        .day-toggle-disabled {
+            background-color: #1F2937; /* gray-800 */
+            color: #4B5563; /* gray-600 */
+            opacity: 0.7;
+            pointer-events: none; /* Make it unclickable */
+        }
+    </style>
+</head>
+<body class="bg-black">
+
+    <!-- Main container optimized for mobile, single scroll -->
+    <div class="max-w-md mx-auto p-4 min-h-screen">
+        
+        <!-- Header -->
+        <header class="mb-2 shrink-0">
+            <!-- Live Clock -->
+            <div id="live-clock" class="text-lg text-cyan-400 font-medium">
+                Loading time...
+            </div>
+            <!-- Static "Free to Go" Line -->
+            <div class="text-md text-green-400 text-glow-green font-medium">
+                <span id="free-to-go-header"></span>
+                <span id="free-to-go-countdown" class="text-sm text-gray-400"></span>
+            </div>
+        </header>
+
+        <!-- Day Toggle -->
+        <nav class="my-4">
+            <div id="day-toggle-container" class="flex justify-between space-x-1">
+                <!-- Buttons will be injected here by JS -->
+            </div>
+        </nav>
+
+        <!-- "Next" Card (Moved Up) -->
+        <div id="next-card" class="bg-black border border-gray-700 rounded-xl shadow-md p-4 hidden transition-all duration-300 mb-3">
+            <!-- Card Content (will be populated by JS) -->
+            <div class="flex justify-between items-center mb-2">
+                    <span id="next-status" class="text-sm font-bold uppercase text-gray-400">NEXT UP</span>
+                    <span id="next-start-time" class="text-sm font-medium text-gray-400"></span>
+                </div>
+                <h3 id="next-title" class="text-2xl font-bold text-white mb-1"></h3>
+                <p id="next-room" class="text-lg font-semibold text-gray-300 mb-2"></p>
+                <p id="next-faculty" class="text-lg font-semibold text-gray-300 mb-2"></p>
+            <p id="next-countdown" class="text-md font-medium text-cyan-400 text-glow-cyan"></p>
+        </div>
+
+        <!-- "Current Status" Dashboard -->
+        <section id="current-status-section" class="mb-3 shrink-0">
+            <h2 class="text-xl font-semibold text-cyan-300 text-glow-cyan mb-3">Current Status</h2>
+            
+            <!-- "Now" Card -->
+            <div id="now-card" class="rounded-xl shadow-lg p-4 mb-3 hidden transition-all duration-300">
+                <!-- Card Content (will be populated by JS) -->
+                <div class="flex justify-between items-center mb-3">
+                    <span id="now-status" class="text-sm font-bold uppercase"></span>
+                    <span id="now-time-range" class="text-sm font-medium"></span>
+                </div>
+                <h3 id="now-title" class="text-2xl font-bold mb-1"></h3>
+                <p id="now-room" class="text-lg font-semibold"></p>
+                <p id="now-faculty" class="text-lg font-semibold mb-4"></p>
+                
+                <!-- Linear Progress Bar -->
+                <div class="w-full bg-gray-700 rounded-full h-2.5">
+                    <div id="linear-progress-bar" class="bg-cyan-400 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+                
+                <!-- UPDATED: Progress text now in a flex container -->
+                <div class="flex justify-between text-sm mt-1">
+                    <span id="progress-elapsed-text"></span>
+                    <span id="progress-percent-text" class="font-bold"></span>
+                    <span id="progress-remaining-text"></span>
+                </div>
+
+            </div>
+            
+        </section>
+
+        <!-- Day's Schedule -->
+        <section class="pb-4">
+            <h2 id="day-header" class="text-xl font-semibold text-cyan-300 text-glow-cyan mb-3">Today's Schedule</h2>
+            
+            <!-- Schedule content will be dynamically generated and inserted here -->
+            <div id="schedule-container" class="space-y-2">
+                <!-- Day's classes will be added by JS -->
+            </div>
+        </section>
+
+        <!-- To-Do List -->
+        <section class="pb-4">
+            <h2 class="text-xl font-semibold text-cyan-300 text-glow-cyan mb-3">To-Do List</h2>
+            <div class="flex space-x-2 mb-3">
+                <input type="text" id="task-input" class="flex-grow bg-gray-900 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500" placeholder="Add a new task...">
+                <button id="add-task-btn" class="bg-cyan-500 text-black font-bold p-2 rounded-lg">Add</button>
+            </div>
+            <ul id="task-list" class="space-y-2">
+                <!-- Tasks will be added by JS -->
+            </ul>
+        </section>
+        
+    </div>
+
+    <script>
+        // --- 1. SCHEDULE DATA ---
+        // day: 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        const schedule = [];
+
+        const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const dayNamesShort = ["S", "M", "T", "W", "T", "F", "S"];
+
+        // --- 2. DOM ELEMENTS & GLOBAL STATE ---
+        const clockEl = document.getElementById('live-clock');
+        const freeToGoHeader = document.getElementById('free-to-go-header');
+        const freeToGoCountdown = document.getElementById('free-to-go-countdown');
+        const dayToggleContainer = document.getElementById('day-toggle-container');
+        const nowCard = document.getElementById('now-card');
+        const nextCard = document.getElementById('next-card');
+        const currentStatusSection = document.getElementById('current-status-section');
+        const scheduleContainer = document.getElementById('schedule-container');
+        const dayHeader = document.getElementById('day-header');
+        
+        // To-Do List Elements
+        const taskInput = document.getElementById('task-input');
+        const addTaskBtn = document.getElementById('add-task-btn');
+        const taskList = document.getElementById('task-list');
+        
+        let globalLastClassEndMins = 0; // Will be set by buildDaySchedule()
+        let selectedDay = new Date().getDay(); // Default to today
+        let todoTasks = []; // Array for to-do list
+
+        // --- 3. HELPER FUNCTIONS ---
+
+        /**
+         * Converts "HH:MM" time string to total minutes from midnight.
+         */
+        function timeToMins(timeStr) {
+            if (!timeStr) return 0;
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+
+        /**
+         * Converts total minutes from midnight to "HH:MM" string.
+         */
+        function minsToTimeStr(totalMinutes) {
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+
+        /**
+         * Formats total minutes into a full "Xh Ym Zs" countdown.
+         * @param {number} totalSeconds - Total seconds to format.
+         * @returns {string} - e.g., "1h 15m 30s"
+         */
+        function formatFullCountdown(totalSeconds) {
+            if (totalSeconds < 0) return "0s";
+            
+            const hours = Math.floor(totalSeconds / 3600);
+            totalSeconds %= 3600;
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = Math.floor(totalSeconds % 60); // Use floor for seconds
+
+            let parts = [];
+            if (hours > 0) parts.push(`${hours}h`);
+            if (minutes > 0) parts.push(`${minutes}m`);
+            parts.push(`${seconds}s`);
+            
+            return parts.join(' ');
+        }
+
+        /**
+         * Formats minutes into a countdown string. (For "Next" card)
+         */
+        function formatCountdown(totalMinutes) {
+            const now = new Date();
+            const mins = Math.floor(totalMinutes);
+            const secs = 60 - now.getSeconds();
+
+            if (mins < 0) return "Starting now...";
+            
+            const hours = Math.floor(mins / 60);
+            const remainingMins = mins % 60;
+
+            let parts = [];
+            if (hours > 0) parts.push(`${hours}h`);
+            if (remainingMins > 0) parts.push(`${remainingMins}m`);
+            if (hours === 0 && remainingMins === 0) {
+                 parts.push(`${secs}s`);
+            } else if (hours === 0) {
+                 parts.push(`${secs}s`);
+            }
+
+            return `in ${parts.join(' ')}`;
+        }
+        
+        /**
+         * Formats minutes into a countdown string for the list.
+         * @param {number} totalMinutes - Total minutes to format.
+         * @returns {string} - e.g., "Starts in 1h 15m 30s"
+         */
+        function formatCountdownList(totalMinutes) {
+            const now = new Date();
+            const mins = Math.floor(totalMinutes);
+            const secs = 60 - now.getSeconds();
+
+            if (mins < 0) return ""; // Past
+            
+            const hours = Math.floor(mins / 60);
+            const remainingMins = mins % 60;
+
+            let parts = [];
+            if (hours > 0) parts.push(`${hours}h`);
+            if (remainingMins > 0) parts.push(`${remainingMins}m`);
+            if (hours === 0 && remainingMins === 0) {
+                 parts.push(`${secs}s`);
+            } else if (hours === 0) {
+                 parts.push(`${secs}s`);
+            }
+
+            if (parts.length === 0) return "";
+            return `Starts in ${parts.join(' ')}`;
+        }
+
+        /**
+         * Formats a Date object to "Day, Date | HH:MM:SS AM/PM"
+         */
+        function formatDateTime(dateObj) {
+            const dateOptions = {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+            };
+            const timeOptions = {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            };
+            return `${dateObj.toLocaleDateString(undefined, dateOptions)} | ${dateObj.toLocaleTimeString(undefined, timeOptions)}`;
+        }
+        
+        /**
+         * Converts "HH:MM" 24-hour string to "HH:MM AM/PM" 12-hour string.
+         * @param {string} timeStr - e.g., "13:51" or "08:30"
+         * @returns {string} - e.g., "01:51 PM" or "08:30 AM"
+         */
+        function formatTime12h(timeStr) {
+            if (!timeStr) return "";
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const hours12 = hours % 12 || 12; // Convert 0 or 12 to 12
+            const paddedMinutes = String(minutes).padStart(2, '0');
+            const paddedHours = String(hours12).padStart(2, '0');
+            return `${paddedHours}:${paddedMinutes} ${ampm}`;
+        }
+
+        /**
+         * Calculates duration in hours and minutes.
+         * @param {string} startStr - "HH:MM"
+         * @param {string} endStr - "HH:MM"
+         * @returns {string} - e.g., "1h 20m"
+         */
+        function calculateDuration(startStr, endStr) {
+            const startMins = timeToMins(startStr);
+            const endMins = timeToMins(endStr);
+            const durationMins = endMins - startMins;
+
+            if (durationMins <= 0) return "";
+
+            const hours = Math.floor(durationMins / 60);
+            const mins = durationMins % 60;
+            
+            let parts = [];
+            if (hours > 0) parts.push(`${hours}h`);
+            if (mins > 0) parts.push(`${mins}m`);
+            
+            return parts.join(' ');
+        }
+
+        /**
+         * Assigns unique, predictable IDs to each class object.
+         */
+        function assignClassIDs() {
+            schedule.forEach(c => {
+                c.id = `class-${c.day}-${c.start.replace(':', '')}`;
+            });
+        }
+
+        // --- 4. TO-DO LIST FUNCTIONS ---
+        
+        function loadTasks() {
+            try {
+                const tasksString = localStorage.getItem('todoTasks');
+                if (tasksString) {
+                    todoTasks = JSON.parse(tasksString);
+                }
+            } catch (e) {
+                console.error("Error loading tasks from localStorage:", e);
+                todoTasks = []; // Reset tasks
+            }
+            renderTasks();
+        }
+
+        function saveTasks() {
+            try {
+                localStorage.setItem('todoTasks', JSON.stringify(todoTasks));
+            } catch (e) {
+                console.error("Error saving tasks to localStorage:", e);
+            }
+        }
+
+        function renderTasks() {
+            if (!taskList) return; // Safety check
+            taskList.innerHTML = '';
+            if (todoTasks.length === 0) {
+                taskList.innerHTML = `<li class="text-gray-500 text-center">No tasks yet.</li>`;
+                return;
+            }
+            todoTasks.forEach((task, index) => {
+                const li = document.createElement('li');
+                li.className = 'flex justify-between items-center bg-gray-900 border border-gray-700 p-2 rounded-lg';
+                // Sanitize task text before inserting as HTML
+                const taskTextNode = document.createTextNode(task);
+                const span = document.createElement('span');
+                span.className = "text-gray-200";
+                span.appendChild(taskTextNode);
+                
+                li.appendChild(span);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = "remove-task-btn text-red-500 font-bold ml-2";
+                removeBtn.dataset.index = index;
+                removeBtn.textContent = "X";
+                li.appendChild(removeBtn);
+
+                taskList.appendChild(li);
+            });
+        }
+
+        function handleAddTask() {
+            if (!taskInput) return; // Safety check
+            const taskText = taskInput.value.trim();
+            if (taskText) {
+                todoTasks.push(taskText);
+                taskInput.value = '';
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        function handleRemoveTask(e) {
+            if (e.target.classList.contains('remove-task-btn')) {
+                const index = parseInt(e.target.dataset.index, 10);
+                todoTasks.splice(index, 1);
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        // --- 6. CORE LOGIC ---
+
+        /**
+         * Main function to update clock, "Now/Next" cards, and highlights.
+         */
+        function updateTimeAndSchedule() {
+            const now = new Date();
+            const currentDay = now.getDay();
+            const currentTimeInMins = now.getHours() * 60 + now.getMinutes();
+            const nowInSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+            
+            // 6.1 Update Live Clock
+            if (clockEl) {
+                clockEl.textContent = formatDateTime(now);
+            }
+
+            // 6.2 Update "Time Until Free" Countdown
+            if (freeToGoHeader && freeToGoCountdown) { // Check if elements exist
+                if (globalLastClassEndMins > 0 && currentTimeInMins < globalLastClassEndMins) {
+                    const endInSeconds = globalLastClassEndMins * 60;
+                    const secondsRemaining = endInSeconds - nowInSeconds;
+                    freeToGoCountdown.textContent = ` (Free in: ${formatFullCountdown(secondsRemaining)})`;
+                } else if (globalLastClassEndMins > 0 && currentTimeInMins >= globalLastClassEndMins) {
+                    freeToGoCountdown.textContent = " (You are free!)";
+                } else {
+                    freeToGoCountdown.textContent = ""; // No classes
+                }
+            }
+
+            // --- All updates below this only apply if we are viewing TODAY's schedule ---
+            if (selectedDay !== currentDay) {
+                if (currentStatusSection) currentStatusSection.classList.add('hidden'); // Hide "Current Status"
+                if (nextCard) nextCard.classList.add('hidden'); // Hide "Next"
+                // Remove all highlights
+                document.querySelectorAll('.class-item').forEach(el => {
+                    el.classList.remove('active-class-highlight');
+                });
+                return; // Stop here if not viewing today
+            }
+
+            // --- If we are viewing today, show live cards ---
+            if (currentStatusSection) currentStatusSection.classList.remove('hidden');
+
+            // 6.3 Find Current and Next Classes
+            const todayClasses = schedule
+                .filter(c => c.day === currentDay)
+                .sort((a, b) => timeToMins(a.start) - timeToMins(b.start));
+
+            let currentClass = null;
+            let nextClass = null;
+
+            for (const c of todayClasses) {
+                const startMins = timeToMins(c.start);
+                const endMins = timeToMins(c.end);
+
+                if (currentTimeInMins >= startMins && currentTimeInMins < endMins) {
+                    currentClass = c;
+                    currentClass.startMins = startMins;
+                    currentClass.endMins = endMins;
+                } else if (currentTimeInMins < startMins && !nextClass) {
+                    nextClass = c;
+                    nextClass.startMins = startMins;
+                }
+            }
+            
+            // 6.4 Remove all previous highlights
+            document.querySelectorAll('.class-item').forEach(el => {
+                el.classList.remove('active-class-highlight');
+            });
+
+            // 6.5 Update "Now" Card
+            const nowFaculty = document.getElementById('now-faculty');
+            const nowRoom = document.getElementById('now-room');
+            if (currentClass) {
+                if (nowCard) nowCard.classList.remove('hidden');
+                // Set style: active class (cyan/blue gradient)
+                if (nowCard) nowCard.className = "rounded-xl shadow-lg p-4 mb-3 bg-gradient-to-br from-cyan-400 to-blue-600 text-white transition-all duration-300";
+                
+                const nowStatusEl = document.getElementById('now-status');
+                if (nowStatusEl) {
+                    nowStatusEl.textContent = "NOW";
+                    nowStatusEl.className = "text-sm font-bold uppercase";
+                }
+                const nowTimeRangeEl = document.getElementById('now-time-range');
+                if (nowTimeRangeEl) {
+                    nowTimeRangeEl.textContent = `${formatTime12h(currentClass.start)} - ${formatTime12h(currentClass.end)} (${calculateDuration(currentClass.start, currentClass.end)})`;
+                }
+                const nowTitleEl = document.getElementById('now-title');
+                if (nowTitleEl) {
+                    nowTitleEl.textContent = `${currentClass.name} ${currentClass.section ? `(${currentClass.section})` : ''}`;
+                    nowTitleEl.className = "text-2xl font-bold mb-1";
+                }
+                if (nowRoom) {
+                    nowRoom.innerHTML = `<span class="font-bold text-white bg-black bg-opacity-20 p-1 rounded">${currentClass.room}</span>`;
+                    nowRoom.className = "text-lg font-semibold";
+                }
+                if (nowFaculty) {
+                    nowFaculty.textContent = `${currentClass.faculty}`;
+                    nowFaculty.style.display = 'block';
+                }
+
+                // Update progress bar
+                const totalDuration = currentClass.endMins - currentClass.startMins;
+                const elapsed = currentTimeInMins - currentClass.startMins;
+                const progressPercent = (elapsed / totalDuration) * 100;
+                
+                // Update Linear Progress Bar
+                const linearProgressBar = document.getElementById('linear-progress-bar');
+                
+                // --- NEW: Get all three text spans ---
+                const elapsedEl = document.getElementById('progress-elapsed-text');
+                const percentEl = document.getElementById('progress-percent-text');
+                const remainingEl = document.getElementById('progress-remaining-text');
+                
+                if (linearProgressBar) {
+                    linearProgressBar.style.width = `${progressPercent}%`;
+                }
+                
+                // --- NEW: Calculate times and update text spans ---
+                if (elapsedEl && percentEl && remainingEl) {
+                    const startInSeconds = currentClass.startMins * 60;
+                    const endInSeconds = currentClass.endMins * 60;
+                    
+                    const elapsedSeconds = nowInSeconds - startInSeconds;
+                    const secondsRemaining = endInSeconds - nowInSeconds;
+                    
+                    elapsedEl.textContent = `Elapsed: ${formatFullCountdown(elapsedSeconds)}`;
+                    percentEl.textContent = `${Math.round(progressPercent)}%`;
+                    remainingEl.textContent = `Left: ${formatFullCountdown(secondsRemaining)}`;
+                }
+                // --- END NEW ---
+
+                // Highlight in full list
+                const activeEl = document.getElementById(currentClass.id);
+                if (activeEl) {
+                    activeEl.classList.add('active-class-highlight');
+                }
+
+            } else {
+                // No class, show "free" status (dark gray + green)
+                if (nowCard) nowCard.classList.remove('hidden');
+                if (nowCard) nowCard.className = "rounded-xl shadow-lg p-4 mb-3 bg-black border border-green-500 transition-all duration-300";
+
+                const nowStatusEl = document.getElementById('now-status');
+                if (nowStatusEl) {
+                    nowStatusEl.textContent = "FREE";
+                    nowStatusEl.className = "text-sm font-bold uppercase text-green-400 text-glow-green";
+                }
+                const nowTimeRangeEl = document.getElementById('now-time-range');
+                if (nowTimeRangeEl) nowTimeRangeEl.textContent = "";
+                
+                const nowTitleEl = document.getElementById('now-title');
+                if (nowTitleEl) {
+                    nowTitleEl.textContent = "No class right now";
+                    nowTitleEl.className = "text-2xl font-bold mb-1 text-white";
+                }
+                if (nowRoom) {
+                    nowRoom.innerHTML = "Enjoy your break!";
+                    nowRoom.className = "text-lg font-semibold mb-4 text-gray-300";
+                }
+                if (nowFaculty) nowFaculty.style.display = 'none';
+
+                // Reset Linear Progress Bar
+                const linearProgressBar = document.getElementById('linear-progress-bar');
+                if (linearProgressBar) {
+                    linearProgressBar.style.width = '0%';
+                }
+                
+                // --- NEW: Clear all three text spans ---
+                const elapsedEl = document.getElementById('progress-elapsed-text');
+                const percentEl = document.getElementById('progress-percent-text');
+                const remainingEl = document.getElementById('progress-remaining-text');
+                
+                if (elapsedEl) elapsedEl.textContent = "";
+                if (percentEl) percentEl.textContent = "";
+                if (remainingEl) remainingEl.textContent = "";
+            }
+            
+            // 6.6 Update "Next" Card (Now with "Free to Go" logic)
+            if (nextCard) { // Check if nextCard itself exists
+                const nextFaculty = document.getElementById('next-faculty');
+                const nextRoom = document.getElementById('next-room');
+                const nextStatus = document.getElementById('next-status');
+                const nextCountdown = document.getElementById('next-countdown');
+                const nextStartTime = document.getElementById('next-start-time');
+                const nextTitle = document.getElementById('next-title');
+
+                if (nextClass && !currentClass) {
+                    // State 1: A class is upcoming
+                    nextCard.classList.remove('hidden');
+                    nextCard.className = "bg-black border border-gray-700 rounded-xl shadow-md p-4 transition-all duration-300 mb-3";
+
+                    if (nextStatus) {
+                        nextStatus.textContent = "NEXT UP";
+                        nextStatus.className = "text-sm font-bold uppercase text-gray-400";
+                    }
+                    if (nextStartTime) nextStartTime.textContent = `at ${formatTime12h(nextClass.start)} (${calculateDuration(nextClass.start, nextClass.end)})`;
+                    if (nextTitle) {
+                        nextTitle.textContent = `${nextClass.name} ${nextClass.section ? `(${nextClass.section})` : ''}`;
+                        nextTitle.className = "text-2xl font-bold text-white mb-1";
+                    }
+                    if (nextRoom) {
+                        nextRoom.innerHTML = `<span class="font-bold text-cyan-300 text-glow-cyan p-1 rounded">${nextClass.room}</span>`;
+                        nextRoom.style.display = 'block';
+                    }
+                    if (nextFaculty) {
+                        nextFaculty.textContent = `${nextClass.faculty}`;
+                        nextFaculty.style.display = 'block';
+                    }
+                    
+                    // Update countdown
+                    const minsToStart = nextClass.startMins - currentTimeInMins;
+                    if (nextCountdown) nextCountdown.textContent = formatCountdown(minsToStart);
+                    
+                } else if (!nextClass && !currentClass && globalLastClassEndMins > 0 && currentTimeInMins >= globalLastClassEndMins) {
+                    // State 2: All classes for today are done
+                    nextCard.classList.remove('hidden');
+                    nextCard.className = "bg-black border border-green-500 rounded-xl shadow-md p-4 transition-all duration-300 mb-3"; // Green border
+                    
+                    if (nextStatus) {
+                        nextStatus.textContent = "DONE FOR TODAY";
+                        nextStatus.className = "text-sm font-bold uppercase text-green-400 text-glow-green";
+                    }
+                    if (nextStartTime) nextStartTime.textContent = `Since ${formatTime12h(minsToTimeStr(globalLastClassEndMins))}`;
+                    if (nextTitle) {
+                        nextTitle.textContent = "Free to Go!";
+                        nextTitle.className = "text-2xl font-bold text-white mb-1";
+                    }
+                    if (nextRoom) nextRoom.style.display = 'none';
+                    if (nextFaculty) nextFaculty.style.display = 'none';
+                    if (nextCountdown) nextCountdown.textContent = "🎉";
+
+                } else if (!nextClass && !currentClass && globalLastClassEndMins === 0) {
+                     // State 3: No classes at all today
+                    nextCard.classList.remove('hidden');
+                    nextCard.className = "bg-black border border-gray-700 rounded-xl shadow-md p-4 transition-all duration-300 mb-3";
+                    
+                    if (nextStatus) {
+                        nextStatus.textContent = "ALL DAY";
+                        nextStatus.className = "text-sm font-bold uppercase text-gray-400";
+                    }
+                    if (nextStartTime) nextStartTime.textContent = "";
+                    if (nextTitle) {
+                        nextTitle.textContent = "No classes today";
+                        nextTitle.className = "text-2xl font-bold text-white mb-1";
+                    }
+                    if (nextRoom) nextRoom.style.display = 'none';
+                    if (nextFaculty) nextFaculty.style.display = 'none';
+                    if (nextCountdown) nextCountdown.textContent = "📅";
+                } else {
+                    // State 4: Class is in session, hide "Next" card
+                    nextCard.classList.add('hidden');
+                }
+            } // end if(nextCard)
+
+            // 6.7 Update all countdowns in the list
+            document.querySelectorAll('.countdown-timer').forEach(el => {
+                const startTime = el.dataset.startTime;
+                if (!startTime) return; // Safety check
+                const startMins = timeToMins(startTime);
+                
+                if (currentTimeInMins < startMins) {
+                    const minsToStart = startMins - currentTimeInMins;
+                    el.textContent = formatCountdownList(minsToStart);
+                } else {
+                    el.textContent = ""; // Class started or is over
+                }
+            });
+        }
+
+        /**
+         * Builds the static schedule list for the *selected day*.
+         * Also sets the global `globalLastClassEndMins` variable.
+         * @param {number} dayToShow - The day of the week (0-6)
+         */
+        function buildDaySchedule(dayToShow) {
+            let html = '';
+            const isToday = (dayToShow === new Date().getDay());
+            
+            if (dayHeader) {
+                dayHeader.textContent = isToday ? "Today's Schedule" : `${dayNames[dayToShow]}'s Schedule`;
+            }
+            
+            const dayClasses = schedule
+                .filter(c => c.day === dayToShow)
+                .sort((a, b) => timeToMins(a.start) - timeToMins(b.start));
+
+            let dayLastClassEndMins = 0; // Reset for the day
+
+            if (dayClasses.length > 0) {
+                dayClasses.forEach(c => {
+                    // Update the last class end time
+                    dayLastClassEndMins = Math.max(dayLastClassEndMins, timeToMins(c.end));
+                    
+                    html += `
+                        <div id="${c.id}" class="class-item bg-black border border-gray-700 p-3 rounded-xl shadow-md">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-bold text-lg text-gray-100">${formatTime12h(c.start)} - ${formatTime12h(c.end)}</span>
+                                <span class="text-sm font-medium text-cyan-400">${c.code}</span>
+                            </div>
+                            <h4 class="text-lg font-semibold text-white leading-tight">${c.name} ${c.section ? `(${c.section})` : ''}</h4>
+                            <p class="text-md text-gray-400 leading-tight">${c.faculty}</p>
+                            <div class="flex justify-between items-end mt-2">
+                                <p class="text-md text-gray-300"><span class="font-bold text-cyan-300 text-glow-cyan p-1 rounded">${c.room}</span></p>
+                                <div class="text-right flex-shrink-0">
+                                    <p class="text-sm text-gray-500 font-medium">${calculateDuration(c.start, c.end)}</p>
+                                    ${isToday ? `<p class="countdown-timer text-cyan-400 text-sm font-semibold" data-start-time="${c.start}"></p>` : ''}
+                                 </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                if (freeToGoHeader) {
+                    freeToGoHeader.textContent = `Free to Go: ${formatTime12h(minsToTimeStr(dayLastClassEndMins))}`; // Update header
+                }
+
+            } else {
+                dayLastClassEndMins = 0; // No classes
+                if (freeToGoHeader) {
+                    freeToGoHeader.textContent = "No Classes Today 📅";
+                }
+                html = `
+                    <div class="bg-black border border-gray-700 p-4 rounded-xl shadow-md text-center">
+                        <h4 class="text-lg font-semibold text-white">No classes today!</h4>
+                        <p class="text-2xl mt-2">📅</p>
+                    </div>
+                `;
+            }
+            
+            // Only update the *global* last class time if we are building the schedule for *today*
+            if (isToday) {
+                 globalLastClassEndMins = dayLastClassEndMins;
+            }
+            if (scheduleContainer) {
+                scheduleContainer.innerHTML = html;
+            }
+
+            // Update day toggle button styles
+            document.querySelectorAll('.day-toggle').forEach((btn, index) => {
+                if (index === dayToShow) {
+                    btn.classList.add('day-toggle-active');
+                } else {
+                    btn.classList.remove('day-toggle-active');
+                }
+            });
+        }
+
+        /**
+         * Builds the 7-day toggle buttons.
+         */
+        function buildDayToggle() {
+            if (!dayToggleContainer) return;
+            // Get a set of all days that have classes
+            const daysWithClasses = new Set(schedule.map(c => c.day));
+
+            dayNamesShort.forEach((day, index) => {
+                const btn = document.createElement('button');
+                btn.textContent = day;
+                btn.className = 'day-toggle w-full p-2 rounded-lg text-sm font-bold text-gray-300';
+                
+                // Check if day should be disabled
+                const hasClasses = daysWithClasses.has(index);
+                // 5 is Friday
+                const isDisabled = !hasClasses || (index === 5);
+                
+                if (isDisabled) {
+                    btn.classList.add('day-toggle-disabled');
+                } else {
+                    // Only add click listener if it's an active day
+                    btn.addEventListener('click', () => {
+                        selectedDay = index;
+                        buildDaySchedule(selectedDay);
+                        // Manually run updateTimeAndSchedule to show/hide live cards immediately
+                        updateTimeAndSchedule(); 
+                    });
+                }
+                
+                dayToggleContainer.appendChild(btn);
+            });
+        }
+
+        // --- 7. INITIALIZATION ---
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // 1. Assign unique IDs to all class objects
+            assignClassIDs();
+
+            // 2. Build the day toggle buttons
+            buildDayToggle();
+            
+            // 3. Build the list for *today* only (this also sets globalLastClassEndMins)
+            buildDaySchedule(selectedDay);
+            
+            // 4. Run the update function immediately on load
+            updateTimeAndSchedule();
+            
+            // 5. Set it to run every second
+            setInterval(updateTimeAndSchedule, 1000);
+
+            // 6. Initialize To-Do List
+            loadTasks();
+            if (addTaskBtn) {
+                addTaskBtn.addEventListener('click', handleAddTask);
+            }
+            if (taskInput) {
+                taskInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') handleAddTask();
+                });
+            }
+            if (taskList) {
+                taskList.addEventListener('click', handleRemoveTask);
+            }
+        });
+    </script>
+
+</body>
+</html>
